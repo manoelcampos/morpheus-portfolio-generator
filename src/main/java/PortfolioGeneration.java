@@ -7,6 +7,7 @@ import com.zavtech.morpheus.viz.chart.Chart;
 import com.zavtech.morpheus.viz.chart.xy.XyPlot;
 import com.zavtech.morpheus.yahoo.YahooFinance;
 
+import java.io.File;
 import java.time.LocalDate;
 
 /**
@@ -34,7 +35,7 @@ public class PortfolioGeneration {
     private static final int COUNT = 10000;
 
     //Define investment horizon
-    private final LocalDate end = LocalDate.now();
+    private final LocalDate end = LocalDate.of(2018, 03, 17);
     private final LocalDate start = end.minusYears(1);
 
     /**
@@ -74,9 +75,11 @@ public class PortfolioGeneration {
         final DataFrame<Integer,String> risksOfFirstGroup = portfoliosRisksByGroup.getValue(0);
 
         //Chart.create().htmlMode();  //Globally enables HTML mode (it doesn't create a chart in fact)
-        Chart.create()
-                .<Integer,String>withScatterPlot(
+        Chart<XyPlot<Integer>> chart =
+            Chart.create()
+                .<Integer, String>withScatterPlot(
                         risksOfFirstGroup, false, "Risk", this::configureChart);
+        chart.writerPng(new File("portfolios-analysis-by-assets-group.png"), 800, 600, true);
     }
 
     /**

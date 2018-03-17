@@ -8,6 +8,12 @@ generate random portfolios for groups os assets (stocks) extracted
 from the http://finance.yahoo.com"[Yahoo Finance WebSite] using
 the http://www.zavtech.com/morpheus/docs/providers/yahoo/[morpheus-yahoo unofficial API].
 
+The image below shows an example of the graph generate for groups of
+N random generated portfolios, each group containing a different number
+of assets.
+
+image:portfolios-analysis-by-assets-group.png[]
+
 == Credits
 
 This example was based on the code available at the
