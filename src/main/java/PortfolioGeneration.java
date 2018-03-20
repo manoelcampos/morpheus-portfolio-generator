@@ -2,10 +2,10 @@ import com.zavtech.morpheus.array.Array;
 import com.zavtech.morpheus.array.ArrayValue;
 import com.zavtech.morpheus.frame.DataFrame;
 import com.zavtech.morpheus.frame.DataFrameRow;
+import com.zavtech.morpheus.frame.DataFrameValue;
 import com.zavtech.morpheus.range.Range;
 import com.zavtech.morpheus.viz.chart.Chart;
 import com.zavtech.morpheus.viz.chart.xy.XyPlot;
-import com.zavtech.morpheus.yahoo.YahooFinance;
 
 import java.io.File;
 import java.time.LocalDate;
@@ -33,132 +33,186 @@ public class PortfolioGeneration {
      * Number of random portfolios to generate for each {@link #assetsGroups group of assets.}
      */
     private static final int COUNT = 10000;
+    public static final String SUBTITLE = COUNT + " Randomly Generated Portfolio Combinations";
+    public static final String X_AXIS_LABEL = "Portfolio Risk";
+    public static final String Y_AXIS_LABEL = "Portfolio Return";
+    public static final int PORTFOLIO_RISK_COL = 0;
+    public static final int PORTFOLIO_RETURN_COL = 1;
+    public String title = "Risk/Return Profiles of Portfolios";
 
     //Define investment horizon
     private final LocalDate end = LocalDate.of(2018, 03, 17);
     private final LocalDate start = end.minusYears(1);
 
-    /**
-     * Gets stock market data from Yahoo Finance.
-     */
-    private final YahooFinance yahoo = new YahooFinance();
 
     /**
-     * An Array of Arrays of Assets representing groups of assetsGroups
-     * to be used to create portfolios using only the assetsGroups in the group.
-     * Each group represents the assetsGroups to be used
+     * An Array containing internal arrays representing groups of assets
+     * to be used to create portfolios using only the assets in the group.
+     * Each group represents the assets to be used
      * to generate {@link #COUNT} portfolios, each one with different random weights for the containing
      * assetsGroups.
      *
-     * One can add internal Arrays with different number of assetsGroups to show the
-     * generated portfolios from these assetsGroups behave in terms of risk and return,
-     * as the number of assetsGroups increases.
+     * One can add internal Arrays with different number of assets to show the
+     * generated portfolios from these assets behave in terms of risk and return,
+     * as the number of assets increases.
      */
-    private final Array<Array<String>> assetsGroups = Array.of(Array.of("VWO", "VNQ", "VEA"), Array.of("VNQ", "VEA"));
+    private final Array<Array<String>> assetsGroups = Array.of(
+            Array.of("VWO", "VNQ", "VEA")
+            //Array.of("VNQ", "VEA")
+    );
 
     /**
-     * An array of {@link DataFrame} containing the risks for every asset of all randomly generated portfolios,
+     * An array of {@link DataFrame} containing the overall risk and returns for every randomly generated portfolio,
      * for every group given by the {@link #assetsGroups}.
+     * Each DataFrame represents a portfolio for a group of assets.
+     * Each row represents the overall risk and return for that portfolio.
      *
      * @see #computeRiskAndReturnForPortfolios(ArrayValue)
      */
-    private final Array<DataFrame<Integer,String>> portfoliosRisksByGroup;
+    private final Array<DataFrame<Integer,String>> portfoliosRiskReturnByGroup;
 
     public static void main(String[] args) {
         new PortfolioGeneration();
     }
 
     private PortfolioGeneration(){
-        portfoliosRisksByGroup = assetsGroups.map(this::computeRiskAndReturnForPortfolios);
+        if(assetsGroups.length() > 1) {
+            title += " with Increasing Number of Assets";
+        }
 
-        //The risks for every asset in every portfolio for the first group of assets.
-        final DataFrame<Integer,String> risksOfFirstGroup = portfoliosRisksByGroup.getValue(0);
-
-        //Chart.create().htmlMode();  //Globally enables HTML mode (it doesn't create a chart in fact)
-        Chart<XyPlot<Integer>> chart =
-            Chart.create()
-                .<Integer, String>withScatterPlot(
-                        risksOfFirstGroup, false, "Risk", this::configureChart);
-        chart.writerPng(new File("portfolios-analysis-by-assets-group.png"), 800, 600, true);
+        portfoliosRiskReturnByGroup = assetsGroups.map(this::computeRiskAndReturnForPortfolios);
+        plot();
     }
 
     /**
-     * Computes the risk and return for random generated portfolios compounded of a given
+     * Computes the risk and return for {@link #COUNT} random generated portfolios compounded of a given
      * list of assets.
      *
-     * @param assetsGroup an Array of Assets extracted from {@link #assetsGroups} to generate the
+     * @param assetsGroup an Array of Assets extracted from {@link #assetsGroups} to generate
      *               random portfolios (each portfolio with different weights for each asset).
-     * @return a {@link DataFrame} containing the risk for each asset in all generated portfolios
+     * @return a {@link DataFrame} containing the risk and return of all generated portfolios
      *         from the given assets' group.
-     *         Each row in this DataFrame represents a portfolio.
-     *         Each value in the row represents the risk for a given asset in this portfolio.
+     *         Each row in this DataFrame represents a portfolio where the rows are
+     *         indexed by the portfolio number (Integer) and the columns are named using the assets names (String).
+     *         Each value in the row is a Stream of {@link DataFrameValue} where
+     *         the columns are named using the asset name (DataFrameValue colKey)
+     *         and each column value is the risk for an asset.
      */
     private DataFrame<Integer, String> computeRiskAndReturnForPortfolios(final ArrayValue<Array<String>> assetsGroup) {
         //The names of the stocks that represent the assets
         final Array<String> tickers = assetsGroup.getValue();
 
-        //Grab daily returns and cumulative returns from Yahoo Finance
-        final DataFrame<LocalDate, String> dayReturns = yahoo.getDailyReturns(start, end, tickers);
-        final DataFrame<LocalDate, String> cumReturns = yahoo.getCumReturns(start, end, tickers);
-
-        //Compute asset covariance matrix from daily returns and annualize
-        final DataFrame<String, String> covarianceMatrix = dayReturns.cols().stats().covariance().applyDoubles(x -> x.getDouble() * 252);
-        final DataFrame<LocalDate, String> assetsReturns = cumReturns.rows().last().map(DataFrameRow::toDataFrame).get();
+        final AssetsReturns returns = new AssetsReturns(tickers, start, end);
 
         //Generate random portfolios and compute risk & return for each
-        final String label = String.format("%s Assets", tickers.length());
         final DataFrame<Integer, String> portfolios = createRandomPortfolios(COUNT, tickers);
-        final DataFrame<Integer, String> assetsRisks = DataFrame.ofDoubles(Range.of(0, COUNT), Array.of("Risk", label));
+        final String label = String.format("%s Assets", tickers.length());
 
-        portfolios.rows().forEach(p -> plotPortfolio(p, covarianceMatrix, assetsReturns, assetsRisks));
+        /*
+        A DataFrame to be filled with the overall risk and returns for every generated portfolio of the group.
+        Each row is a portfolio (indexed by its Integer number).
+        The the values for each row are DataFrameValue objects, each one
+        having columns names as the asset name (String).
+        */
+        final DataFrame<Integer, String> assetsRisksReturns =
+                DataFrame.ofDoubles(Range.of(0, COUNT), Array.of("Risk", label));
 
-        return assetsRisks;
+        for (final DataFrameRow<Integer, String> p: portfolios.rows()) {
+            computePortfolioRiskAndReturn(p, returns, assetsRisksReturns);
+        }
+
+        return assetsRisksReturns;
     }
 
     /**
-     * Plots the point of a specific portfolio at the chart.
+     * Computes the overall risk and return for a given potfolio.
      *
-     * @param portfolio a row representing a portfolio, where the Integer value is the asset weight and the String is the asset acronym
-     * @param covarianceMatrix the matrix of covariance between every pair of assets
-     * @param assetReturns the returns of all assets
-     * @param assetsRisks the risk of all assets
+     * @param portfolio a row representing a portfolio where the row is
+     *         indexed by the portfolio number (Integer) and the columns are named using the assets names (String).
+     *         Each value in the row is a Stream of {@link DataFrameValue} where
+     *         the columns are named using the asset name (DataFrameValue colKey)
+     *         and each column value is the risk for an asset.
+     * @param returns the returns of all assets in this portfolio
+     * @param assetsRisksReturn a DataFrame to be <b>filled</b> with the overall risk and return of the portfolio.
+     *                          Each row in this DataFrame is a portfolio. The first column is the portfolio
+     *                          return and the second one is the portfolio risk (variance).
+     *                          The Strings that index the column is used to label such values accordingly.
      */
-    private void plotPortfolio(
+    private void computePortfolioRiskAndReturn(
             final DataFrameRow<Integer, String> portfolio,
-            final DataFrame<String, String> covarianceMatrix,
-            final DataFrame<LocalDate, String> assetReturns,
-            final DataFrame<Integer, String> assetsRisks)
+            final AssetsReturns returns,
+            final DataFrame<Integer, String> assetsRisksReturn)
     {
-        DataFrame<Integer, String> weights = portfolio.toDataFrame();
-        double portfolioReturn = weights.dot(assetReturns.transpose()).data().getDouble(0, 0);
-        double portfolioVariance = weights.dot(covarianceMatrix).dot(weights.transpose()).data().getDouble(0, 0);
-        assetsRisks.data().setDouble(portfolio.key(), 1, portfolioReturn * 100d);
-        assetsRisks.data().setDouble(portfolio.key(), 0, Math.sqrt(portfolioVariance) * 100d);
+        final DataFrame<Integer, String> weights = portfolio.toDataFrame();
+
+        final double portfolioReturn = computePortfolioReturn(returns, weights);
+        final double portfolioVariance = computePortfolioRisk(returns, weights);
+
+        assetsRisksReturn.data().setDouble(portfolio.key(), PORTFOLIO_RISK_COL, Math.sqrt(portfolioVariance) * 100d);
+        assetsRisksReturn.data().setDouble(portfolio.key(), PORTFOLIO_RETURN_COL, portfolioReturn * 100d);
+    }
+
+    /**
+     * Computes the overall portfolio risk, based on the weight and return of each asset.
+     *
+     * @param returns the risk of all assets in the portfolio
+     * @param weights the weights for each asset in the portfolio
+     * @return the overall portfolio risk.
+     */
+    private double computePortfolioRisk(final AssetsReturns returns, final DataFrame<Integer, String> weights) {
+        /* Since the dot product operation between two arrays/matrices is a single scalar value,
+         *  the value from the row 0 and column 0 is being got from the resulting DataFrame. */
+        return weights.dot(returns.covarianceMatrix()).dot(weights.transpose()).data().getDouble(0, 0);
+    }
+
+    /**
+     * Computes the overall portfolio return, based on the weight and return of each asset.
+     *
+     * @param returns the returns of all assets in the portfolio
+     * @param weights the weights for each asset in the portfolio
+     * @return the overall portfolio return.
+     */
+    private double computePortfolioReturn(final AssetsReturns returns, final DataFrame<Integer, String> weights) {
+        /* Since the dot product operation between two arrays/matrices is a single scalar value,
+        *  the value from the row 0 and column 0 is being got from the resulting DataFrame. */
+        return weights.dot(returns.getTotalCumulativeReturns().transpose()).data().getDouble(0, 0);
+    }
+
+    private void plot() {
+        //The risks for every asset in every portfolio for the first group of assets.
+        final DataFrame<Integer,String> risksOfFirstGroup = portfoliosRiskReturnByGroup.getValue(0);
+
+        //Chart.create().htmlMode();  //Globally enables HTML mode (it doesn't create a chart in fact)
+        Chart<XyPlot<Integer>> chart =
+                Chart.create()
+                        .withScatterPlot(
+                                risksOfFirstGroup, false, "Risk", this::configureChart);
+        chart.writerPng(new File("portfolios-analysis-"+COUNT+"-assets.png"), 800, 600, true);
     }
 
     private void configureChart(final Chart<XyPlot<Integer>> chart) {
-        for (int i = 1; i < portfoliosRisksByGroup.length(); ++i) {
-            chart.plot().<String>data().add(portfoliosRisksByGroup.getValue(i), "Risk");
+        for (int i = 1; i < portfoliosRiskReturnByGroup.length(); ++i) {
+            chart.plot().<String>data().add(portfoliosRiskReturnByGroup.getValue(i), "Risk");
             chart.plot().render(i).withDots();
         }
 
-        chart.plot().axes().domain().label().withText("Portfolio Risk");
-        chart.plot().axes().domain().format().withPattern("0.00'%';-0.00'%'");
-        chart.plot().axes().range(0).label().withText("Portfolio Return");
-        chart.plot().axes().range(0).format().withPattern("0.00'%';-0.00'%'");
-        chart.title().withText("Risk/Return Profiles of Portfolios With Increasing Number of Assets");
-        chart.subtitle().withText(COUNT + " Randomly Generated Portfolio Combinations");
+        chart.plot().axes().domain().label().withText(X_AXIS_LABEL);
+        chart.plot().axes().domain().format().withPattern("0.0'%';-0.0'%'");
+        chart.plot().axes().range(0).label().withText(Y_AXIS_LABEL);
+        chart.plot().axes().range(0).format().withPattern("0.0'%';-0.0'%'");
+        chart.title().withText(title);
+        chart.subtitle().withText(SUBTITLE);
         chart.legend().on().bottom();
         chart.show();
     }
 
     /**
      * Generates N long only random portfolios with weights that add up to 1,
-     * all the them containing a given list of assets.
+     * all of them containing a given list of assets.
      *
      * @param n         the number of portfolios (rows) in the DataFrame
      * @param assets    the assets to include for the generated portfolios (a list of the asset's acronyms)
-     * @return          the {@link DataFrameRow} of N random generated portfolios (1 per row).
+     * @return          a DataFrame containing N random generated portfolios (1 per row).
      *                  For each row, the Integer value is the asset weight and the String is the asset acronym
      */
     private DataFrame<Integer,String> createRandomPortfolios(final int n, final Iterable<String> assets) {
@@ -187,4 +241,5 @@ public class PortfolioGeneration {
         //v.getDouble() is the weight for the asset in the portfolio
         portfolio.applyDoubles(v -> v.getDouble() / totalWeights);
     }
+
 }
