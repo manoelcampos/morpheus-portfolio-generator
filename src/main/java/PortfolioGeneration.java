@@ -1,14 +1,14 @@
 import com.zavtech.morpheus.array.Array;
 import com.zavtech.morpheus.array.ArrayValue;
-import com.zavtech.morpheus.frame.DataFrame;
-import com.zavtech.morpheus.frame.DataFrameRow;
-import com.zavtech.morpheus.frame.DataFrameValue;
+import com.zavtech.morpheus.frame.*;
 import com.zavtech.morpheus.range.Range;
+import com.zavtech.morpheus.util.Tuple;
 import com.zavtech.morpheus.viz.chart.Chart;
 import com.zavtech.morpheus.viz.chart.xy.XyPlot;
 
 import java.io.File;
 import java.time.LocalDate;
+import java.util.Comparator;
 
 /**
  * Applies the Modern Portfolio Theory (MPT) to plot randomly generated portfolios with different weights
@@ -32,18 +32,26 @@ public class PortfolioGeneration {
     /**
      * Number of random portfolios to generate for each {@link #assetsGroups group of assets.}
      */
-    private static final int COUNT = 10000;
-    public static final String SUBTITLE = COUNT + " Randomly Generated Portfolio Combinations";
-    public static final String X_AXIS_LABEL = "Portfolio Risk";
-    public static final String Y_AXIS_LABEL = "Portfolio Return";
-    public static final int PORTFOLIO_RISK_COL = 0;
-    public static final int PORTFOLIO_RETURN_COL = 1;
-    public String title = "Risk/Return Profiles of Portfolios";
+    private static final int COUNT = 100000;
+    private static final String SUBTITLE = COUNT + " Randomly Generated Portfolio Combinations";
+    private static final String X_AXIS_LABEL = "Portfolio Risk";
+    private static final String Y_AXIS_LABEL = "Portfolio Return";
+    private static final int RISK_COL = 0;
+    private static final int RETURN_COL = 1;
+    private final DataFrame<Integer, String> efficientPortfolio;
+    private String title = "Risk/Return Portfolios";
+    private final DataFrame<Integer,String> emptyDataFrame = getEmptyRiskReturnDataFrame();
+
+    private DataFrame<Integer, String> getEmptyRiskReturnDataFrame() {
+        return DataFrame.ofDoubles(0, Array.of(String.class, "Risk", "Return"));
+    }
 
     //Define investment horizon
     private final LocalDate end = LocalDate.of(2018, 03, 17);
     private final LocalDate start = end.minusYears(1);
 
+    private static final Comparator<DataFrameRow<Integer, String>> riskComparator = Comparator.comparingDouble(row -> row.getValue(RISK_COL));
+    private static final Comparator<DataFrameRow<Integer, String>> returnComparator = Comparator.comparingDouble(row -> row.getValue(RETURN_COL));
 
     /**
      * An Array containing internal arrays representing groups of assets
@@ -58,18 +66,19 @@ public class PortfolioGeneration {
      */
     private final Array<Array<String>> assetsGroups = Array.of(
             Array.of("VWO", "VNQ", "VEA")
-            //Array.of("VNQ", "VEA")
+            //, Array.of("VNQ", "VEA")
     );
 
     /**
      * An array of {@link DataFrame} containing the overall risk and returns for every randomly generated portfolio,
      * for every group given by the {@link #assetsGroups}.
-     * Each DataFrame represents a portfolio for a group of assets.
-     * Each row represents the overall risk and return for that portfolio.
+     * Each DataFrame represents all the portfolios for a group of assets.
+     * Each row represents a portfolio where the fist column is the overall risk and
+     * the second the return.
      *
      * @see #computeRiskAndReturnForPortfolios(ArrayValue)
      */
-    private final Array<DataFrame<Integer,String>> portfoliosRiskReturnByGroup;
+    private Array<DataFrame<Integer,String>> portfoliosByGroup;
 
     public static void main(String[] args) {
         new PortfolioGeneration();
@@ -80,8 +89,139 @@ public class PortfolioGeneration {
             title += " with Increasing Number of Assets";
         }
 
-        portfoliosRiskReturnByGroup = assetsGroups.map(this::computeRiskAndReturnForPortfolios);
+        portfoliosByGroup = assetsGroups.map(this::computeRiskAndReturnForPortfolios);
+
+        this.efficientPortfolio =
+                getMostEfficientPortfolio(portfoliosByGroup.getValue(assetsGroups.length()-1));
+
+        final DataFrame<Integer, String> efficientFrontierPortfolios = getEfficientFrontierPortfolios();
+
+        /*
+         * Adds the most efficient portfolio for every assets' group to the groups of created portfolios.
+         * This way, the dot corresponding to the most efficient portfolios are highlighted in the chart.
+         * Array.concat is throwing IndexOutOfBoundsException
+         */
+        portfoliosByGroup.expand(portfoliosByGroup.length()+2);
+        portfoliosByGroup.setValue(portfoliosByGroup.length()-2, efficientFrontierPortfolios);
+        portfoliosByGroup.setValue(portfoliosByGroup.length()-1, efficientPortfolio);
+
+        //portfoliosByGroup.forEach(p -> p.out().print());
+
+        System.out.println();
+        final DataFrameRow<Integer, String> row = efficientPortfolio.rowAt(0);
+        System.out.printf(
+            "\nMost Efficient Portfolio %d: Risk %.2f Return %.2f\n",
+            row.key(),
+            row.getValue(RISK_COL),
+            row.getValue(RETURN_COL));
+
         plot();
+    }
+
+    /**
+     * The efficient frontier is the line starting at the tip of the bullet-shaped portfolios curve,
+     * that splits the curve in a lower and upper half. This tip is the most efficient portfolio, which has
+     * the lower risk and the higher return for that level of risk.
+     * The efficient frontier is so drawn from all points along the risk axis that corresponds to the
+     * maximum return that can be got for that level of risk.
+     *
+     * Check the {@link #configureChart(Chart)} to see how to draw the efficient frontier line.
+     * @todo The label and color for the efficient frontier portfolios has to be changed.
+     *       They are showing as the regular portfolios.
+     */
+    private DataFrame<Integer, String> getEfficientFrontierPortfolios() {
+        final double efficientPortfolioReturn = efficientPortfolio.rowAt(0).getDouble(RETURN_COL);
+        System.out.println("Efficient Portfolio Return: " + efficientPortfolioReturn);
+
+        /*
+         * Gets all the portfolios belonging to the upper half of the bullet-shaped portfolios curve.
+         * Those are the ones for which you can get higher returns for a given level of risk,
+         * compared to portfolios at the same risk level but belonging to the lower half of the graph.
+         */
+        final DataFrameRows<Integer, String> upperHalfPortfolios = portfoliosByGroup
+                .getValue(assetsGroups.length() - 1)
+                .rows()
+                .filter(row -> row.getDouble(RETURN_COL) >= efficientPortfolioReturn);
+
+        /*Gets the portfolios having the max return for a given risk.
+        Since the precision of the risk value is too high, cuts the number of decimal places
+        for the risk values to 1 to ensure correct grouping.
+        With all the original decimal places, hardly ever a risk value repeats
+        so that it could be grouped.
+        * */
+        final DataFrame<Integer, String> df = upperHalfPortfolios
+                .groupBy(row -> Tuple.of(AssetsReturns.cutDecimalPlaces(row.getDouble("Risk"), 2)))
+                .stats(0)
+                .max()
+                .rows()
+                //redefine row keys as their indexes
+                .mapKeys(DataFrameRow::ordinal);
+
+        System.out.println(
+                "Portfolios at upper half of the curve: " + upperHalfPortfolios.count() +
+                " Max return portfolios: " + df.rowCount());
+
+        /* Redefine the name of the return column to be different from the
+         * dataframe from which the efficient frontier portfolios were gotten. */
+        df.cols().replaceKey(df.colAt(1).key(), "Efficient Frontier");
+        //df.out().print(df.rowCount());
+        return df;
+    }
+
+    /**
+     * Gets the most efficient portfolio for the last group of assets.
+     * That is, the portfolio with the lower risk and higher return.
+     * Such a portfolio defines the point on the tip of the bullet-shaped portfolios curve
+     * that divides the lower and upper half of the curve.
+     * All the portfolios on the border of the upper half of the curve are in the efficient frontier.
+     *
+     * @param portfolios the DataFrame containing the portfolios to get the most efficient one,
+     *                   where each row is a portfolio containing the risk at the first column
+     *                   and the return at the second column
+     *
+     * @return the most efficient portfolio from the list of portfolios given
+     */
+    private DataFrame<Integer, String> getMostEfficientPortfolio(DataFrame<Integer, String> portfolios) {
+        final DataFrameRow<Integer, String> row =
+              portfolios
+                .rows()
+                .min(riskComparator.thenComparing(returnComparator.reversed()))
+                .orElseGet(() -> emptyDataFrame.rowAt(0));
+
+        return createDataFrameFromRow(row);
+    }
+
+    /**
+     * Creates a DataFrame from a given row representing the most efficient portfolio
+     * for a group of assets (that is, the portfolio with lower risk and the higher
+     * return for that level of risk).
+     *
+     * The row is added to the new DataFrame using the same key value (the index of the row).
+     * An additional row is added to the extreme right of the risk axis (X), so that
+     * a line splitting the lower and upper half of the bullet-shaped portfolios chart
+     * can be drawn.
+     *
+     * @param row the row to add its values to the single row included in the DataFrame
+     * @return the DataFrame created from the given row
+     * @see #configureChart(Chart)
+     */
+    private DataFrame<Integer, String> createDataFrameFromRow(final DataFrameRow<Integer, String> row) {
+        final DataFrame<Integer, String> df = DataFrame.<Integer, String>ofDoubles(Array.of(row.key(), row.key()+1),
+                Array.of(String.class, "Risk", "Division between efficient and inefficient portfolios"));
+
+        /* Defines the most efficient portfolio,
+         * a point represented by a row having the lower risk and higher return
+         * for this level of risk.
+        */
+        df.rowAt(0).setValue(RISK_COL, row.getValue(RISK_COL));
+        df.rowAt(0).setValue(RETURN_COL, row.getValue(RETURN_COL));
+
+        /* Creates another portfolio with the same return but the higher risk (at the extreme right of the X axis
+        and at the same position in Y). This way, a straight to split the lower and upper half
+        of the bullet-shaped portfolios curve can be draw. */
+        df.rowAt(1).setValue(RISK_COL, 13.5);
+        df.rowAt(1).setValue(RETURN_COL, row.getValue(RETURN_COL));
+        return df;
     }
 
     /**
@@ -90,8 +230,8 @@ public class PortfolioGeneration {
      *
      * @param assetsGroup an Array of Assets extracted from {@link #assetsGroups} to generate
      *               random portfolios (each portfolio with different weights for each asset).
-     * @return a {@link DataFrame} containing the risk and return of all generated portfolios
-     *         from the given assets' group.
+     * @return a {@link DataFrame} representing all generated portfolios,
+     *         containing the risk and return, from the given assets' group.
      *         Each row in this DataFrame represents a portfolio where the rows are
      *         indexed by the portfolio number (Integer) and the columns are named using the assets names (String).
      *         Each value in the row is a Stream of {@link DataFrameValue} where
@@ -114,18 +254,18 @@ public class PortfolioGeneration {
         The the values for each row are DataFrameValue objects, each one
         having columns names as the asset name (String).
         */
-        final DataFrame<Integer, String> assetsRisksReturns =
+        final DataFrame<Integer, String> portfoliosRisksReturns =
                 DataFrame.ofDoubles(Range.of(0, COUNT), Array.of("Risk", label));
 
         for (final DataFrameRow<Integer, String> p: portfolios.rows()) {
-            computePortfolioRiskAndReturn(p, returns, assetsRisksReturns);
+            computePortfolioRiskAndReturn(p, returns, portfoliosRisksReturns);
         }
 
-        return assetsRisksReturns;
+        return portfoliosRisksReturns;
     }
 
     /**
-     * Computes the overall risk and return for a given potfolio.
+     * Computes the overall risk and return for a given portfolio.
      *
      * @param portfolio a row representing a portfolio where the row is
      *         indexed by the portfolio number (Integer) and the columns are named using the assets names (String).
@@ -148,8 +288,8 @@ public class PortfolioGeneration {
         final double portfolioReturn = computePortfolioReturn(returns, weights);
         final double portfolioVariance = computePortfolioRisk(returns, weights);
 
-        assetsRisksReturn.data().setDouble(portfolio.key(), PORTFOLIO_RISK_COL, Math.sqrt(portfolioVariance) * 100d);
-        assetsRisksReturn.data().setDouble(portfolio.key(), PORTFOLIO_RETURN_COL, portfolioReturn * 100d);
+        assetsRisksReturn.data().setDouble(portfolio.key(), RISK_COL, Math.sqrt(portfolioVariance) * 100d);
+        assetsRisksReturn.data().setDouble(portfolio.key(), RETURN_COL, portfolioReturn * 100d);
     }
 
     /**
@@ -180,21 +320,42 @@ public class PortfolioGeneration {
 
     private void plot() {
         //The risks for every asset in every portfolio for the first group of assets.
-        final DataFrame<Integer,String> risksOfFirstGroup = portfoliosRiskReturnByGroup.getValue(0);
+        final DataFrame<Integer,String> risksOfFirstGroup = portfoliosByGroup.getValue(0);
 
         //Chart.create().htmlMode();  //Globally enables HTML mode (it doesn't create a chart in fact)
-        Chart<XyPlot<Integer>> chart =
+        final Chart<XyPlot<Integer>> chart =
                 Chart.create()
                         .withScatterPlot(
                                 risksOfFirstGroup, false, "Risk", this::configureChart);
-        chart.writerPng(new File("portfolios-analysis-"+COUNT+"-assets.png"), 800, 600, true);
+
+        new Thread(() -> {
+            try {
+                Thread.sleep(10000);
+            } catch (InterruptedException e) {
+            }
+            chart.writerPng(new File("portfolios-analysis-"+COUNT+"-assets.png"), 800, 600, true);
+        }).start();
     }
 
     private void configureChart(final Chart<XyPlot<Integer>> chart) {
-        for (int i = 1; i < portfoliosRiskReturnByGroup.length(); ++i) {
-            chart.plot().<String>data().add(portfoliosRiskReturnByGroup.getValue(i), "Risk");
-            chart.plot().render(i).withDots();
+        final int dotsDiameter = 4;
+        chart.plot().render(0).withDots(dotsDiameter);
+        /*
+        Inserts the additional groups of portfolios to be plotted.
+        The loop starts at 1 because the first frame is passed to the Chart.create method.
+        */
+        for (int i = 1; i < portfoliosByGroup.length(); ++i) {
+            chart.plot().<String>data().add(portfoliosByGroup.getValue(i), "Risk");
+            chart.plot().render(i).withDots(dotsDiameter);
         }
+
+        /** Creates a line between the most efficient portfolio and a point
+         *  at the extreme right of the x axis.
+         *  This last row in the array of portfolios represents
+         *  a DataFrame containing the most efficient portfolio for the last group of assets.
+         *  The data for this line is creates using the method {@link #createDataFrameFromRow(ArrayValue)}
+         */
+        chart.plot().render(portfoliosByGroup.length()-1).withLines(true, false);
 
         chart.plot().axes().domain().label().withText(X_AXIS_LABEL);
         chart.plot().axes().domain().format().withPattern("0.0'%';-0.0'%'");

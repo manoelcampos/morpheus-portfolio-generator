@@ -1,6 +1,7 @@
 import com.zavtech.morpheus.array.Array;
 import com.zavtech.morpheus.frame.DataFrame;
 import com.zavtech.morpheus.frame.DataFrameRow;
+import com.zavtech.morpheus.frame.DataFrameValue;
 import com.zavtech.morpheus.yahoo.YahooFinance;
 
 import java.time.LocalDate;
@@ -58,6 +59,18 @@ public class AssetsReturns {
 
     private DataFrame<LocalDate, String> loadDailyReturnsYahoo() {
         return yahoo.getDailyReturns(start, end, getTickers());
+    }
+
+    /**
+     * Gets a double value and cuts its decimal places so that
+     * the number of decimal places will be equal to the param decimalPlaces
+     * @param value the value to cut decimal places
+     * @param decimalPlaces the number of decimal places to remain after the cut
+     * @return the double value with some decimal places cut
+     */
+    public static double cutDecimalPlaces(final double value, final int decimalPlaces){
+        final String fmt = "%."+decimalPlaces+"f";
+        return Double.valueOf(String.format(fmt, value));
     }
 
     public DataFrame<LocalDate, String> getDayReturns() {
