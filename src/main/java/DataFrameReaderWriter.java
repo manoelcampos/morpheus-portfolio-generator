@@ -1,12 +1,12 @@
 import com.zavtech.morpheus.frame.DataFrame;
 import com.zavtech.morpheus.sink.CsvSinkOptions;
 import com.zavtech.morpheus.util.text.Formats;
-import com.zavtech.morpheus.util.text.printer.Printer;
 import com.zavtech.morpheus.yahoo.YahooFinance;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.UncheckedIOException;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.function.Supplier;
 
 /**
@@ -36,14 +36,22 @@ public class DataFrameReaderWriter {
         this.fileName = fileName;
     }
 
-    public void save(final DataFrame<LocalDate, String> dataFrame){
-        if(dataFrame != null) {
-            dataFrame.write().csv(this::setCsvOptions);
+    /**
+     * Checks if a given DataFrame {@link #getFileName() file} exists and then loads it.
+     *
+     * @return the loaded DataFrame from the File
+     * @throws java.io.UncheckedIOException when the file is not found
+     */
+    public DataFrame<LocalDate, String> load(){
+        if (!fileExists()) {
+            throw new UncheckedIOException(new FileNotFoundException("The " + fileName + " cannot be found."));
         }
+
+        return load(DataFrame::empty);
     }
 
     /**
-     * Checks if a given DataFrame file exists and then loads it.
+     * Checks if a given DataFrame {@link #getFileName() file} exists and then loads it.
      * Otherwise, fetch the data using a {@link Supplier}.
      * Such Supplier can get, for instance, data from the Yahoo Finance
      * or any other kind of datasource.
@@ -58,7 +66,7 @@ public class DataFrameReaderWriter {
      */
     public DataFrame<LocalDate, String> load(final Supplier<DataFrame<LocalDate, String>> dataFrameSupplier)
     {
-        if(new File(fileName).exists()) {
+        if(fileExists()) {
             System.out.println("Loaded DataFrame from file " + fileName);
             return DataFrame.<LocalDate, String>read()
                     .csv(options -> {
@@ -69,9 +77,26 @@ public class DataFrameReaderWriter {
                     });
         }
 
-        final DataFrame<LocalDate, String> dataFrame = dataFrameSupplier.get();
-        save(dataFrame);
-        return dataFrame;
+        final DataFrame<LocalDate, String> df = dataFrameSupplier.get();
+        if(df.rowCount() > 0) {
+            save(df);
+        }
+
+        return df;
+    }
+
+    private boolean fileExists() {
+        return new File(fileName).exists();
+    }
+
+    /**
+     * Saves the DataFrame to a {@link #getFileName() file}.
+     * @param dataFrame the DataFrame to be saved
+     */
+    public void save(final DataFrame<LocalDate, String> dataFrame){
+        if(dataFrame != null) {
+            dataFrame.write().csv(this::setCsvOptions);
+        }
     }
 
     private void setCsvOptions(final CsvSinkOptions<LocalDate> options) {
@@ -99,5 +124,13 @@ public class DataFrameReaderWriter {
     public DataFrameReaderWriter setKeyColumnTitle(final String keyColumnTitle) {
         this.keyColumnTitle = keyColumnTitle;
         return this;
+    }
+
+    /**
+     * Gets the name of the file to read/write the DataFrame from/to.
+     * @return
+     */
+    public String getFileName() {
+        return fileName;
     }
 }

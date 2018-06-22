@@ -20,13 +20,13 @@ import java.util.stream.Collectors;
  */
 public class AssetsReturns {
     private static final String DAY_RETURNS_FILE = "day-returns-frame";
-    private static final String CUM_RETURNS_FILE = "cummulative-returns-frame";
+    private static final String CUM_RETURNS_FILE = "cumulative-returns-frame";
     private final DataFrame<LocalDate, String> dayReturns;
     private final DataFrame<LocalDate, String> cumReturns;
 
     /**
      * The usual number of days the US stock exchanges work a year.
-     * @see <a href="https://en.wikipedia.org/wiki/Trading_day">Tranding days</a>
+     * @see <a href="https://en.wikipedia.org/wiki/Trading_day">Trading days</a>
      */
     public static final int WORK_DAYS_A_YEAR = 252;
 
@@ -115,7 +115,7 @@ public class AssetsReturns {
     }
 
     /**
-     * The list of assets acronyms for which load data.
+     * The list of assets acronyms for which data will be loaded.
      */
     public Array<String> getTickers() {
         return tickers;
