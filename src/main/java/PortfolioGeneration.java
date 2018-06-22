@@ -5,10 +5,12 @@ import com.zavtech.morpheus.range.Range;
 import com.zavtech.morpheus.util.Tuple;
 import com.zavtech.morpheus.viz.chart.Chart;
 import com.zavtech.morpheus.viz.chart.xy.XyPlot;
+import com.zavtech.morpheus.yahoo.YahooFinance;
 
 import java.io.File;
 import java.time.LocalDate;
 import java.util.Comparator;
+import java.util.function.Supplier;
 
 /**
  * Console application that applies the Modern Portfolio Theory (MPT)
@@ -242,7 +244,10 @@ public class PortfolioGeneration {
         //The names of the stocks that represent the assets
         final Array<String> tickers = assetsGroup.getValue();
 
-        final AssetsReturns returns = new AssetsReturns(tickers, start, end);
+        final YahooFinance yahoo = new YahooFinance();
+        final Supplier<DataFrame<LocalDate, String>> loadDailyReturnsYahoo = () -> yahoo.getDailyReturns(start, end, tickers);
+        final Supplier<DataFrame<LocalDate, String>> loadCumulReturnsYahoo = () -> yahoo.getCumReturns(start, end, tickers);
+        final AssetsReturns returns = new AssetsReturns(tickers, loadDailyReturnsYahoo, loadCumulReturnsYahoo);
 
         //Generate random portfolios and compute risk & return for each
         final DataFrame<Integer, String> portfolios = createRandomPortfolios(COUNT, tickers);
