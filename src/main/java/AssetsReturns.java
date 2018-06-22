@@ -8,8 +8,15 @@ import java.time.LocalDate;
 import java.util.stream.Collectors;
 
 /**
- * Grab daily returns and cumulative returns for a list of assets
- * from local CSV files. In case a file doesn't exist, load the data from Yahoo Finance.
+ * Grab daily and cumulative returns for a list of assets from local CSV files.
+ * In case a file doesn't exist, load the data from Yahoo Finance.
+ *
+ * <p><b>Credits:</b> Class based on the code available at
+ * the <a href="http://www.zavtech.com/morpheus/docs/examples/mpt/#multiple-assets">documentation page</a>
+ * for the <a href="https://github.com/zavtech">ZavTech Morpheus Library</a>
+ * by <a href="https://github.com/Zavster">Xavier Witdouck</a>.</p>
+ *
+ * @author Manoel Campos da Silva Filho
  */
 public class AssetsReturns {
     private static final String DAY_RETURNS_FILE = "day-returns-frame";

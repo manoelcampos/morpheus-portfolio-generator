@@ -11,7 +11,8 @@ import java.time.LocalDate;
 import java.util.Comparator;
 
 /**
- * Applies the Modern Portfolio Theory (MPT) to plot randomly generated portfolios with different weights
+ * Console application that applies the Modern Portfolio Theory (MPT)
+ * to plot randomly generated portfolios with different weights
  * for different groups of assets (stocks). It defines groups of assets than randomly generate N
  * portfolios with different shares (weights) of such assets, for every defined group.
  *
@@ -22,10 +23,11 @@ import java.util.Comparator;
  * <p>The application extract stock market data from the <a href="http://finance.yahoo.com">Yahoo Finance WebSite</a>,
  * using the <a href="http://www.zavtech.com/morpheus/docs/providers/yahoo/">morpheus-yahoo unofficial API</a>.</p>
  *
- * <p><b>Credits:</b> This example was based on the code available at
+ * <p><b>Credits:</b> Class based on the code available at
  * the <a href="http://www.zavtech.com/morpheus/docs/examples/mpt/#multiple-assets">documentation page</a>
  * for the <a href="https://github.com/zavtech">ZavTech Morpheus Library</a>
  * by <a href="https://github.com/Zavster">Xavier Witdouck</a>.</p>
+ *
  * @author Manoel Campos da Silva Filho
  */
 public class PortfolioGeneration {
@@ -122,12 +124,8 @@ public class PortfolioGeneration {
      * The efficient frontier is the line starting at the tip of the bullet-shaped portfolios curve,
      * that splits the curve in a lower and upper half. This tip is the most efficient portfolio, which has
      * the lower risk and the higher return for that level of risk.
-     * The efficient frontier is so drawn from all points along the risk axis that corresponds to the
-     * maximum return that can be got for that level of risk.
-     *
-     * Check the {@link #configureChart(Chart)} to see how to draw the efficient frontier line.
-     * @todo The label and color for the efficient frontier portfolios has to be changed.
-     *       They are showing as the regular portfolios.
+     * The efficient frontier is so drawn from all points along the risk axis (X) that corresponds to the
+     * maximum return (Y axis) that can be got for that level of risk.
      */
     private DataFrame<Integer, String> getEfficientFrontierPortfolios() {
         final double efficientPortfolioReturn = efficientPortfolio.rowAt(0).getDouble(RETURN_COL);
@@ -154,7 +152,7 @@ public class PortfolioGeneration {
                 .stats(0)
                 .max()
                 .rows()
-                //redefine row keys as their indexes
+                //redefines row keys as their indexes
                 .mapKeys(DataFrameRow::ordinal);
 
         System.out.println(
@@ -218,7 +216,9 @@ public class PortfolioGeneration {
 
         /* Creates another portfolio with the same return but the higher risk (at the extreme right of the X axis
         and at the same position in Y). This way, a straight to split the lower and upper half
-        of the bullet-shaped portfolios curve can be draw. */
+        of the bullet-shaped portfolios curve can be draw.
+        @todo This 13.5 value is the higher risk but it has to be computed automatically
+        */
         df.rowAt(1).setValue(RISK_COL, 13.5);
         df.rowAt(1).setValue(RETURN_COL, row.getValue(RETURN_COL));
         return df;

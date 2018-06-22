@@ -1,6 +1,6 @@
 = Portfolio Analysis in Java
 
-Sample projects for generation and analysis of financial portfolios applying the
+Sample project for generation and analysis of financial portfolios applying the
 Modern Portfolio Theory (MPT).
 
 The project uses the https://github.com/zavtech[ZavTech Morpheus Library] to
@@ -8,7 +8,7 @@ generate random portfolios for groups os assets (stocks) extracted
 from the http://finance.yahoo.com"[Yahoo Finance WebSite] using
 the http://www.zavtech.com/morpheus/docs/providers/yahoo/[morpheus-yahoo unofficial API].
 
-The image below shows an example of the graph generate for groups of
+The image below shows an example of the graph generated for groups of
 N random generated portfolios, each group containing a different number
 of assets.
 
@@ -23,5 +23,5 @@ by https://github.com/Zavster[Xavier Witdouck].
 
 The example extracted from the library documentation
 (aimed to be direct and succinct) was totally refactored and documented, extracting
-several methods to make it easier to: (i) reuse and  (ii) understand the code
+several methods to make it easier to (i) reuse and  (ii) understand the code
 and the data structures.
