@@ -32,7 +32,7 @@ import java.util.function.Supplier;
  *
  * @author Manoel Campos da Silva Filho
  */
-public class PortfolioGeneration {
+public class PortfolioGenerationApp {
     /**
      * Number of random portfolios to generate for each {@link #assetsGroups group of assets.}
      */
@@ -85,10 +85,10 @@ public class PortfolioGeneration {
     private Array<DataFrame<Integer,String>> portfoliosByGroup;
 
     public static void main(String[] args) {
-        new PortfolioGeneration();
+        new PortfolioGenerationApp();
     }
 
-    private PortfolioGeneration(){
+    private PortfolioGenerationApp(){
         if(assetsGroups.length() > 1) {
             title += " with Increasing Number of Assets";
         }

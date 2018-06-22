@@ -1,6 +1,7 @@
 import com.zavtech.morpheus.array.Array;
 import com.zavtech.morpheus.frame.DataFrame;
 import com.zavtech.morpheus.frame.DataFrameRow;
+import com.zavtech.morpheus.yahoo.YahooFinance;
 
 import java.time.LocalDate;
 import java.util.function.Supplier;
@@ -8,7 +9,10 @@ import java.util.stream.Collectors;
 
 /**
  * Grab daily and cumulative returns for a list of assets from local CSV files.
- * In case a file doesn't exist, load the data from Yahoo Finance.
+ * In case a file doesn't exist, fetch the data from any external source,
+ * such as the {@link YahooFinance},
+ * using a {@link Supplier} function that encapsulates
+ * how the data has to be fetched.
  *
  * <p><b>Credits:</b> Class based on the code available at
  * the <a href="http://www.zavtech.com/morpheus/docs/examples/mpt/#multiple-assets">documentation page</a>
