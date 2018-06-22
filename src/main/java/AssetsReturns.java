@@ -50,8 +50,8 @@ public class AssetsReturns {
         final Supplier<DataFrame<LocalDate, String>> cumulReturnsSupplier)
     {
         this.tickers = tickers;
-        dailyReturns = new DataFrameReaderWriter(getDataFrameFileName(DAILY_RETURNS_FILE)).load(dailyReturnsSupplier);
-        cumulReturns = new DataFrameReaderWriter(getDataFrameFileName(CUMUL_RETURNS_FILE)).load(cumulReturnsSupplier);
+        dailyReturns = new DataFrameReaderWriter(dataFrameFileName(DAILY_RETURNS_FILE)).load(dailyReturnsSupplier);
+        cumulReturns = new DataFrameReaderWriter(dataFrameFileName(CUMUL_RETURNS_FILE)).load(cumulReturnsSupplier);
     }
 
     /**
@@ -74,7 +74,7 @@ public class AssetsReturns {
     }
 
     /**
-     * Gets assets daily returns.
+     * Gets a {@link DataFrame} with assets daily returns.
      * @return
      * @see #getTickers()
      */
@@ -83,7 +83,11 @@ public class AssetsReturns {
     }
 
     /**
-     * Gets assets cumulative returns.
+     * Gets a {@link DataFrame} with assets cumulative returns, i.e.,
+     * each row in such a DataFrame is the sum of the returns from previous
+     * days since the first date in the interval where the data is contained.
+     * This way, the last row represents the total cumulative returns for that period.
+     *
      * @return
      * @see #getTickers()
      */
@@ -92,12 +96,14 @@ public class AssetsReturns {
     }
 
     /**
-     * Gets the cumulative returns for all assets for the entire period.
-     * @return a DataFrame containing a row for every asset, containing the total cumulative return
-     *         for that asset
+     * Gets a {@link DataFrame} containing a single row with
+     * the cumulative returns of all assets for the entire period.
+     *
+     * @return a DataFrame with a single row containing the cumulative returns for every asset
+     * @see #getCumulReturns()
      */
     public DataFrame<LocalDate, String> getTotalCumulativeReturns(){
-        return cumulReturns.rows().last().map(DataFrameRow::toDataFrame).get();
+        return cumulReturns.rows().last().map(DataFrameRow::toDataFrame).orElseGet(DataFrame::empty);
     }
 
     /**
@@ -109,11 +115,11 @@ public class AssetsReturns {
         return dailyReturns.cols().stats().covariance().applyDoubles(v -> v.getDouble() * WORK_DAYS_A_YEAR);
     }
 
-    private String getDataFrameFileName(final String baseName) {
+    private String dataFrameFileName(final String baseName) {
         return baseName + "_" + assetsArrayToString(getTickers()) + ".csv";
     }
 
     private String assetsArrayToString(final Array<String> assets) {
-        return assets.toList().stream().collect(Collectors.joining(", "));
+        return assets.stream().values().collect(Collectors.joining(", "));
     }
 }

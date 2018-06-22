@@ -334,10 +334,7 @@ public class PortfolioGenerationApp {
                                 risksOfFirstGroup, false, "Risk", this::configureChart);
 
         new Thread(() -> {
-            try {
-                Thread.sleep(10000);
-            } catch (InterruptedException e) {
-            }
+            try { Thread.sleep(10000); } catch (InterruptedException e) {/**/}
             chart.writerPng(new File("portfolios-analysis-"+COUNT+"-assets.png"), 800, 600, true);
         }).start();
     }
