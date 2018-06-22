@@ -245,9 +245,9 @@ public class PortfolioGeneration {
         final Array<String> tickers = assetsGroup.getValue();
 
         final YahooFinance yahoo = new YahooFinance();
-        final Supplier<DataFrame<LocalDate, String>> loadDailyReturnsYahoo = () -> yahoo.getDailyReturns(start, end, tickers);
-        final Supplier<DataFrame<LocalDate, String>> loadCumulReturnsYahoo = () -> yahoo.getCumReturns(start, end, tickers);
-        final AssetsReturns returns = new AssetsReturns(tickers, loadDailyReturnsYahoo, loadCumulReturnsYahoo);
+        final Supplier<DataFrame<LocalDate, String>> dailyReturnsSupplier = () -> yahoo.getDailyReturns(start, end, tickers);
+        final Supplier<DataFrame<LocalDate, String>> cumulReturnsSupplier = () -> yahoo.getCumReturns(start, end, tickers);
+        final AssetsReturns returns = new AssetsReturns(tickers, dailyReturnsSupplier, cumulReturnsSupplier);
 
         //Generate random portfolios and compute risk & return for each
         final DataFrame<Integer, String> portfolios = createRandomPortfolios(COUNT, tickers);
