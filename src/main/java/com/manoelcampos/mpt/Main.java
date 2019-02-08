@@ -1,3 +1,5 @@
+package com.manoelcampos.mpt;
+
 import com.zavtech.morpheus.array.Array;
 import com.zavtech.morpheus.array.ArrayValue;
 import com.zavtech.morpheus.frame.*;
@@ -32,7 +34,7 @@ import java.util.function.Supplier;
  *
  * @author Manoel Campos da Silva Filho
  */
-public class PortfolioGenerationApp {
+public class Main implements Runnable {
     /**
      * Number of random portfolios to generate for each {@link #assetsGroups group of assets.}
      */
@@ -45,17 +47,20 @@ public class PortfolioGenerationApp {
     private final DataFrame<Integer, String> efficientPortfolio;
     private String title = "Risk/Return Portfolios";
     private final DataFrame<Integer,String> emptyDataFrame = getEmptyRiskReturnDataFrame();
+    private Chart<XyPlot<Integer>> chart;
 
     private DataFrame<Integer, String> getEmptyRiskReturnDataFrame() {
         return DataFrame.ofDoubles(0, Array.of(String.class, "Risk", "Return"));
     }
 
-    //Define investment horizon
+    /** Defines the beginning of the investment horizon */
     private final LocalDate end = LocalDate.of(2018, 03, 17);
+
+    /** Defines the end of the investment horizon */
     private final LocalDate start = end.minusYears(1);
 
-    private static final Comparator<DataFrameRow<Integer, String>> riskComparator = Comparator.comparingDouble(row -> row.getValue(RISK_COL));
-    private static final Comparator<DataFrameRow<Integer, String>> returnComparator = Comparator.comparingDouble(row -> row.getValue(RETURN_COL));
+    private final Comparator<DataFrameRow<Integer, String>> riskComparator = Comparator.comparingDouble(row -> row.getValue(RISK_COL));
+    private final Comparator<DataFrameRow<Integer, String>> returnComparator = Comparator.comparingDouble(row -> row.getValue(RETURN_COL));
 
     /**
      * An Array containing internal arrays representing groups of assets
@@ -82,13 +87,13 @@ public class PortfolioGenerationApp {
      *
      * @see #computeRiskAndReturnForPortfolios(ArrayValue)
      */
-    private Array<DataFrame<Integer,String>> portfoliosByGroup;
+    private final Array<DataFrame<Integer,String>> portfoliosByGroup;
 
     public static void main(String[] args) {
-        new PortfolioGenerationApp();
+        new Main();
     }
 
-    private PortfolioGenerationApp(){
+    private Main(){
         if(assetsGroups.length() > 1) {
             title += " with Increasing Number of Assets";
         }
@@ -181,12 +186,11 @@ public class PortfolioGenerationApp {
      *
      * @return the most efficient portfolio from the list of portfolios given
      */
-    private DataFrame<Integer, String> getMostEfficientPortfolio(DataFrame<Integer, String> portfolios) {
-        final DataFrameRow<Integer, String> row =
-              portfolios
-                .rows()
-                .min(riskComparator.thenComparing(returnComparator.reversed()))
-                .orElseGet(() -> emptyDataFrame.rowAt(0));
+    private DataFrame<Integer, String> getMostEfficientPortfolio(final DataFrame<Integer, String> portfolios) {
+        final var row = portfolios
+                            .rows()
+                            .min(riskComparator.thenComparing(returnComparator.reversed()))
+                            .orElseGet(() -> emptyDataFrame.rowAt(0));
 
         return createDataFrameFromRow(row);
     }
@@ -196,18 +200,19 @@ public class PortfolioGenerationApp {
      * for a group of assets (that is, the portfolio with lower risk and the higher
      * return for that level of risk).
      *
-     * The row is added to the new DataFrame using the same key value (the index of the row).
+     * The row is added to the new DataFrame using the same key (the index of the row).
      * An additional row is added to the extreme right of the risk axis (X), so that
      * a line splitting the lower and upper half of the bullet-shaped portfolios chart
      * can be drawn.
      *
      * @param row the row to add its values to the single row included in the DataFrame
-     * @return the DataFrame created from the given row
+     * @return a {@code DataFrame<Integer, String>} created from the given row
      * @see #configureChart(Chart)
      */
     private DataFrame<Integer, String> createDataFrameFromRow(final DataFrameRow<Integer, String> row) {
-        final DataFrame<Integer, String> df = DataFrame.<Integer, String>ofDoubles(Array.of(row.key(), row.key()+1),
-                Array.of(String.class, "Risk", "Division between efficient and inefficient portfolios"));
+        final var df = DataFrame.ofDoubles(
+                                    Array.of(row.key(), row.key()+1),
+                                    Array.of(String.class, "Risk", "Division between efficient and inefficient portfolios"));
 
         /* Defines the most efficient portfolio,
          * a point represented by a row having the lower risk and higher return
@@ -242,16 +247,16 @@ public class PortfolioGenerationApp {
      */
     private DataFrame<Integer, String> computeRiskAndReturnForPortfolios(final ArrayValue<Array<String>> assetsGroup) {
         //The names of the stocks that represent the assets
-        final Array<String> tickers = assetsGroup.getValue();
+        final var tickersArray = assetsGroup.getValue();
 
-        final YahooFinance yahoo = new YahooFinance();
-        final Supplier<DataFrame<LocalDate, String>> dailyReturnsSupplier = () -> yahoo.getDailyReturns(start, end, tickers);
-        final Supplier<DataFrame<LocalDate, String>> cumulReturnsSupplier = () -> yahoo.getCumReturns(start, end, tickers);
-        final AssetsReturns returns = new AssetsReturns(tickers, dailyReturnsSupplier, cumulReturnsSupplier);
+        final var yahoo = new YahooFinance();
+        final Supplier<DataFrame<LocalDate, String>> dailyReturnsSupplier = () -> yahoo.getDailyReturns(start, end, tickersArray);
+        final Supplier<DataFrame<LocalDate, String>> cumulReturnsSupplier = () -> yahoo.getCumReturns(start, end, tickersArray);
+        final var returns = new AssetsReturns(tickersArray, dailyReturnsSupplier, cumulReturnsSupplier);
 
         //Generate random portfolios and compute risk & return for each
-        final DataFrame<Integer, String> portfolios = createRandomPortfolios(COUNT, tickers);
-        final String label = String.format("%s Assets", tickers.length());
+        final DataFrame<Integer, String> portfolios = createRandomPortfolios(COUNT, tickersArray);
+        final var label = String.format("%s Assets", tickersArray.length());
 
         /*
         A DataFrame to be filled with the overall risk and returns for every generated portfolio of the group.
@@ -259,14 +264,14 @@ public class PortfolioGenerationApp {
         The the values for each row are DataFrameValue objects, each one
         having columns names as the asset name (String).
         */
-        final DataFrame<Integer, String> portfoliosRisksReturns =
+        final DataFrame<Integer, String> portfoliosRiskReturn =
                 DataFrame.ofDoubles(Range.of(0, COUNT), Array.of("Risk", label));
 
         for (final DataFrameRow<Integer, String> p: portfolios.rows()) {
-            computePortfolioRiskAndReturn(p, returns, portfoliosRisksReturns);
+            computePortfolioRiskAndReturn(p, returns, portfoliosRiskReturn);
         }
 
-        return portfoliosRisksReturns;
+        return portfoliosRiskReturn;
     }
 
     /**
@@ -300,13 +305,13 @@ public class PortfolioGenerationApp {
     /**
      * Computes the overall portfolio risk, based on the weight and return of each asset.
      *
-     * @param returns the risk of all assets in the portfolio
+     * @param returns the return of all assets in the portfolio
      * @param weights the weights for each asset in the portfolio
      * @return the overall portfolio risk.
      */
     private double computePortfolioRisk(final AssetsReturns returns, final DataFrame<Integer, String> weights) {
         /* Since the dot product operation between two arrays/matrices is a single scalar value,
-         *  the value from the row 0 and column 0 is being got from the resulting DataFrame. */
+         * the value from row 0 and column 0 is being got from the resulting DataFrame. */
         return weights.dot(returns.covarianceMatrix()).dot(weights.transpose()).data().getDouble(0, 0);
     }
 
@@ -328,15 +333,20 @@ public class PortfolioGenerationApp {
         final DataFrame<Integer,String> risksOfFirstGroup = portfoliosByGroup.getValue(0);
 
         //Chart.create().htmlMode();  //Globally enables HTML mode (it doesn't create a chart in fact)
-        final Chart<XyPlot<Integer>> chart =
-                Chart.create()
-                        .withScatterPlot(
-                                risksOfFirstGroup, false, "Risk", this::configureChart);
+        chart = Chart.create()
+                     .withScatterPlot(risksOfFirstGroup, false, "Risk", this::configureChart);
 
-        new Thread(() -> {
-            try { Thread.sleep(10000); } catch (InterruptedException e) {/**/}
-            chart.writerPng(new File("portfolios-analysis-"+COUNT+"-assets.png"), 800, 600, true);
-        }).start();
+        //new Thread(this).start();
+        run();
+    }
+
+    /**
+     * Exports the chart to a graph.
+     */
+    @Override
+    public void run() {
+        try { Thread.sleep(10000); } catch (InterruptedException e) {/**/}
+        chart.writerPng(new File("portfolios-analysis-"+COUNT+"-assets.png"), 800, 600, true);
     }
 
     private void configureChart(final Chart<XyPlot<Integer>> chart) {

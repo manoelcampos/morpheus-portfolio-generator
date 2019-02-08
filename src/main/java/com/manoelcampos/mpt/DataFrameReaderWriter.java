@@ -1,3 +1,5 @@
+package com.manoelcampos.mpt;
+
 import com.zavtech.morpheus.frame.DataFrame;
 import com.zavtech.morpheus.sink.CsvSinkOptions;
 import com.zavtech.morpheus.util.text.Formats;

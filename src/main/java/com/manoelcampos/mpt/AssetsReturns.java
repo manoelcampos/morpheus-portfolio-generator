@@ -1,3 +1,5 @@
+package com.manoelcampos.mpt;
+
 import com.zavtech.morpheus.array.Array;
 import com.zavtech.morpheus.frame.DataFrame;
 import com.zavtech.morpheus.frame.DataFrameRow;
@@ -97,7 +99,7 @@ public class AssetsReturns {
 
     /**
      * Gets a {@link DataFrame} containing a single row with
-     * the cumulative returns of all assets for the entire period.
+     * the total cumulative returns of all assets for the entire period.
      *
      * @return a DataFrame with a single row containing the cumulative returns for every asset
      * @see #getCumulReturns()
