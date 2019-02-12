@@ -121,8 +121,8 @@ public class Main implements Runnable {
         System.out.printf(
             "\nMost Efficient Portfolio %d: Risk %.2f Return %.2f\n",
             row.key(),
-            row.getValue(RISK_COL),
-            row.getValue(RETURN_COL));
+            row.<Double>getValue(RISK_COL),
+            row.<Double>getValue(RETURN_COL));
 
         plot();
     }
@@ -240,10 +240,9 @@ public class Main implements Runnable {
      * @return a {@link DataFrame} representing all generated portfolios,
      *         containing the risk and return, from the given assets' group.
      *         Each row in this DataFrame represents a portfolio where the rows are
-     *         indexed by the portfolio number (Integer) and the columns are named using the assets names (String).
-     *         Each value in the row is a Stream of {@link DataFrameValue} where
-     *         the columns are named using the asset name (DataFrameValue colKey)
-     *         and each column value is the risk for an asset.
+     *         indexed by the portfolio number (Integer).
+     *         The first column is the portfolio return and the second one is the portfolio risk (variance).
+     *         The Strings that index the column is used to label such them accordingly.
      */
     private DataFrame<Integer, String> computeRiskAndReturnForPortfolios(final ArrayValue<Array<String>> assetsGroup) {
         //The names of the stocks that represent the assets
@@ -261,8 +260,8 @@ public class Main implements Runnable {
         /*
         A DataFrame to be filled with the overall risk and returns for every generated portfolio of the group.
         Each row is a portfolio (indexed by its Integer number).
-        The the values for each row are DataFrameValue objects, each one
-        having columns names as the asset name (String).
+        The values for each row are DataFrameValue objects, each one
+        having columns: the 1st is the return and the 2nd the risk.
         */
         final DataFrame<Integer, String> portfoliosRiskReturn =
                 DataFrame.ofDoubles(Range.of(0, COUNT), Array.of("Risk", label));
@@ -286,7 +285,7 @@ public class Main implements Runnable {
      * @param assetsRisksReturn a DataFrame to be <b>filled</b> with the overall risk and return of the portfolio.
      *                          Each row in this DataFrame is a portfolio. The first column is the portfolio
      *                          return and the second one is the portfolio risk (variance).
-     *                          The Strings that index the column is used to label such values accordingly.
+     *                          The Strings that index the column is used to label such them accordingly.
      */
     private void computePortfolioRiskAndReturn(
             final DataFrameRow<Integer, String> portfolio,
@@ -386,12 +385,13 @@ public class Main implements Runnable {
      * @param n         the number of portfolios (rows) in the DataFrame
      * @param assets    the assets to include for the generated portfolios (a list of the asset's acronyms)
      * @return          a DataFrame containing N random generated portfolios (1 per row).
-     *                  For each row, the Integer value is the asset weight and the String is the asset acronym
+     *                  Each DataFrameRow contains columns named with the asset acronym,
+     *                  which the value is a double number representing the weight for each asset
      */
     private DataFrame<Integer,String> createRandomPortfolios(final int n, final Iterable<String> assets) {
         final DataFrame<Integer,String> weights = DataFrame.ofDoubles(Range.of(0, n), assets);
 
-        //Generates random weights (percentages from 0 to 1) for each asset in the DataFrameRow
+        //Generates random weights (percentages from 0 to 1) for each asset (column) in the DataFrameRow
         weights.applyDoubles(v -> Math.random());
 
         weights.rows().forEach(this::normalizePortfolioWeights);
@@ -399,11 +399,11 @@ public class Main implements Runnable {
     }
 
     /**
-     * Normalizes the weights for each asset in the portfolio from the data contained at a {@link DataFrameRow}.
-     * The Integer value at the {@link DataFrameRow} is the asset's weight and the String is the
-     * asset's acronym.
+     * Normalizes the weights for each asset in the portfolio from the data contained in a {@link DataFrameRow}.
+     * Each DataFrameRow contains columns named with the asset acronym,
+     * which the value is a double number representing the weight for each asset.
      * Since the sum of the randomly generated weights can be greater than 1 (100%),
-     * this function normalizes than so that all weights add up to 1.
+     * this function normalizes it so that all weights add up to 1.
      *
      * @param portfolio the {@link DataFrameRow} representing the portfolio to normalize the weights
      */
@@ -411,7 +411,7 @@ public class Main implements Runnable {
         //The sum of all weights for each asset contained in the DataFrameRow representing the portfolio
         final double totalWeights = portfolio.stats().sum();
 
-        //v.getDouble() is the weight for the asset in the portfolio
+        //v.getDouble() is the weight for the asset (column) in the portfolio (DataFrameRow)
         portfolio.applyDoubles(v -> v.getDouble() / totalWeights);
     }
 
