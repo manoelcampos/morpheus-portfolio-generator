@@ -26,7 +26,10 @@ import java.util.stream.Collectors;
 public class AssetsReturns {
     private static final String DAILY_RETURNS_FILE = "day-returns-frame";
     private static final String CUMUL_RETURNS_FILE = "cumulative-returns-frame";
+
+    /** @see #getDailyReturns() */
     private final DataFrame<LocalDate, String> dailyReturns;
+    /** @see #getCumulReturns() */
     private final DataFrame<LocalDate, String> cumulReturns;
 
     /**
@@ -76,7 +79,7 @@ public class AssetsReturns {
     }
 
     /**
-     * Gets a {@link DataFrame} with assets daily returns.
+     * Gets a {@link DataFrame} with the assets' daily returns.
      * @return
      * @see #getTickers()
      */
@@ -85,9 +88,9 @@ public class AssetsReturns {
     }
 
     /**
-     * Gets a {@link DataFrame} with assets cumulative returns, i.e.,
+     * Gets a {@link DataFrame} with the assets' cumulative returns, i.e.,
      * each row in such a DataFrame is the sum of the returns from previous
-     * days since the first date in the interval where the data is contained.
+     * days, since the first date in the interval where the data is contained.
      * This way, the last row represents the total cumulative returns for that period.
      *
      * @return
@@ -99,7 +102,7 @@ public class AssetsReturns {
 
     /**
      * Gets a {@link DataFrame} containing a single row with
-     * the total cumulative returns of all assets for the entire period.
+     * the total cumulative returns of every asset (as columns) for the entire period.
      *
      * @return a DataFrame with a single row containing the cumulative returns for every asset
      * @see #getCumulReturns()

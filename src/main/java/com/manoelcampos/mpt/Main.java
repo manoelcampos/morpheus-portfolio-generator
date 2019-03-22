@@ -49,21 +49,17 @@ public class Main implements Runnable {
     private final DataFrame<Integer,String> emptyDataFrame = getEmptyRiskReturnDataFrame();
     private Chart<XyPlot<Integer>> chart;
 
-    private DataFrame<Integer, String> getEmptyRiskReturnDataFrame() {
-        return DataFrame.ofDoubles(0, Array.of(String.class, "Risk", "Return"));
-    }
-
     /** Defines the beginning of the investment horizon */
-    private final LocalDate end = LocalDate.of(2018, 03, 17);
+    private final LocalDate start = LocalDate.of(2017, 03, 17);
 
     /** Defines the end of the investment horizon */
-    private final LocalDate start = end.minusYears(1);
+    private final LocalDate end = start.plusYears(1);
 
     private final Comparator<DataFrameRow<Integer, String>> riskComparator = Comparator.comparingDouble(row -> row.getValue(RISK_COL));
     private final Comparator<DataFrameRow<Integer, String>> returnComparator = Comparator.comparingDouble(row -> row.getValue(RETURN_COL));
 
     /**
-     * An Array containing internal arrays representing groups of assets
+     * An Array containing groups of assets
      * to be used to create portfolios using only the assets in the group.
      * Each group represents the assets to be used
      * to generate {@link #COUNT} portfolios, each one with different random weights for the containing
@@ -107,11 +103,12 @@ public class Main implements Runnable {
 
         /*
          * Adds the most efficient portfolio for every assets' group to the groups of created portfolios.
-         * This way, the dot corresponding to the most efficient portfolios are highlighted in the chart.
-         * Array.concat is throwing IndexOutOfBoundsException
+         * This way, the dots corresponding to the most efficient portfolios are highlighted in the chart.
          */
         portfoliosByGroup.expand(portfoliosByGroup.length()+2);
         portfoliosByGroup.setValue(portfoliosByGroup.length()-2, efficientFrontierPortfolios);
+        /* Adds the most efficient portfolio for the last group to enable drawing the horizontal yellow line that divides
+         * efficient from inefficient portfolios.*/
         portfoliosByGroup.setValue(portfoliosByGroup.length()-1, efficientPortfolio);
 
         //portfoliosByGroup.forEach(p -> p.out().print());
@@ -125,6 +122,10 @@ public class Main implements Runnable {
             row.<Double>getValue(RETURN_COL));
 
         plot();
+    }
+
+    private DataFrame<Integer, String> getEmptyRiskReturnDataFrame() {
+        return DataFrame.ofDoubles(0, Array.of(String.class, "Risk", "Return"));
     }
 
     /**
@@ -242,7 +243,7 @@ public class Main implements Runnable {
      *         Each row in this DataFrame represents a portfolio where the rows are
      *         indexed by the portfolio number (Integer).
      *         The first column is the portfolio return and the second one is the portfolio risk (variance).
-     *         The Strings that index the column is used to label such them accordingly.
+     *         The Strings that index the columns are used to label them accordingly.
      */
     private DataFrame<Integer, String> computeRiskAndReturnForPortfolios(final ArrayValue<Array<String>> assetsGroup) {
         //The names of the stocks that represent the assets
@@ -285,7 +286,7 @@ public class Main implements Runnable {
      * @param assetsRisksReturn a DataFrame to be <b>filled</b> with the overall risk and return of the portfolio.
      *                          Each row in this DataFrame is a portfolio. The first column is the portfolio
      *                          return and the second one is the portfolio risk (variance).
-     *                          The Strings that index the column is used to label such them accordingly.
+     *                          The Strings that index the columns are used to label them accordingly.
      */
     private void computePortfolioRiskAndReturn(
             final DataFrameRow<Integer, String> portfolio,
@@ -392,7 +393,7 @@ public class Main implements Runnable {
         final DataFrame<Integer,String> weights = DataFrame.ofDoubles(Range.of(0, n), assets);
 
         //Generates random weights (percentages from 0 to 1) for each asset (column) in the DataFrameRow
-        weights.applyDoubles(v -> Math.random());
+        weights.applyDoubles(frameValue -> Math.random());
 
         weights.rows().forEach(this::normalizePortfolioWeights);
         return weights;
