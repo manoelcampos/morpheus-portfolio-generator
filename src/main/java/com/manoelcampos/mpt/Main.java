@@ -51,19 +51,24 @@ public class Main implements Runnable {
     private final DataFrame<Integer,String> emptyDataFrame = getEmptyRiskReturnDataFrame();
     private Chart<XyPlot<Integer>> chart;
 
-    /** Defines the beginning of the investment horizon */
-    private final LocalDate start = LocalDate.of(2017, 03, 17);
-
     /** Defines the end of the investment horizon */
-    private final LocalDate end = start.plusYears(1);
+    private final LocalDate end = LocalDate.now().minusDays(1);
+
+    /** Defines the beginning of the investment horizon.
+     * Yahoo doesn't return values for a large interval (more than 4 months). */
+    private final LocalDate start = end.minusMonths(4);
 
     private final Comparator<DataFrameRow<Integer, String>> riskComparator = Comparator.comparingDouble(row -> row.getValue(RISK_COL));
     private final Comparator<DataFrameRow<Integer, String>> returnComparator = Comparator.comparingDouble(row -> row.getValue(RETURN_COL));
 
     /**
      * An Array with the ticker of assets to create portfolios.
+     * https://query1.finance.yahoo.com/v8/finance/chart/MGLU3.SA?period1=1546311600&period2=1556593200&interval=1d&includePrePost=False
      */
-    private final Array<String> tickersArray = Array.of("AAPL", "INTL", "VEA");
+    private final Array<String> tickersArray = Array.of(
+        "MGLU3.sa", "PETR4.sa", "SQIA3.sa", "BIDI3.sa", "BBAS3.sa", "ITSA3.sa",
+        "SUZB3.sa", "BBDC3.sa", "VALE3.sa", "LAME3.sa", "VVAR3.sa", "WEGE3.sa"
+    );
 
     /**
      * A {@link DataFrame} containing the overall risk and returns for every randomly generated portfolio,
@@ -80,11 +85,8 @@ public class Main implements Runnable {
     }
 
     private Main(){
-
         portfolios = computeRiskAndReturnForPortfolios();
-
         this.efficientFrontierPortfolios = getEfficientFrontierPortfolios();
-
         System.out.println();
         plot();
     }
