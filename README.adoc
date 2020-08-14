@@ -1,4 +1,4 @@
-= Portfolio Analysis in Java
+= Portfolio Analysis in Java image:https://github.com/manoelcampos/portfolio-analysis-java/workflows/maven/badge.svg[GitHub Workflow Status]
 
 A Java 11 project for generation and analysis of financial portfolios applying the
 Modern Portfolio Theory (MPT).
