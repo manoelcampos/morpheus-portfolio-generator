@@ -20,6 +20,7 @@ This example was based on the code available at the
 http://www.zavtech.com/morpheus/docs/examples/mpt/#multiple-assets[documentation page]
 for the https://github.com/zavtech[ZavTech Morpheus Library]
 by https://github.com/Zavster[Xavier Witdouck].
+It uses a custom version of the https://github.com/manoelcampos/morpheus-yahoo[Morpheus Yahoo library available here].
 
 The example extracted from the library documentation
 (aimed to be direct and succinct) was totally refactored and documented, extracting
