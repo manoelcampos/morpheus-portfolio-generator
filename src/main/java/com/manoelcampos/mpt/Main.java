@@ -214,7 +214,7 @@ public class Main implements Runnable {
 
         //Generate random portfolios and compute risk & return for each
         final DataFrame<Integer, String> portfolios = createRandomPortfolios(COUNT, tickersArray);
-        final var label = String.format("%s Assets", tickersArray.length());
+        final var label = String.format("%s Assets Portfolios", tickersArray.length());
 
         /*
         A DataFrame to be filled with the overall risk and returns for every generated portfolio of the group.
